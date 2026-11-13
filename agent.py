@@ -73,25 +73,20 @@ except (ImportError, ValueError):
         list_skills, get_skill_docs, apotelos_cli
     )
 
-# Load persistent runtime environment if present
-_runtime_env_path = os.getenv("RUNTIME_ENV_PATH", "/mnt/localstorage/hermes/runtime.env")
-if os.path.exists(_runtime_env_path):
-    try:
-        with open(_runtime_env_path, "r") as _f:
-            for _line in _f:
-                _line = _line.strip()
-                if _line and not _line.startswith("#") and "=" in _line:
-                    _k, _v = _line.split("=", 1)
-                    val = _v.strip("'\" ")
-                    if val:
-                        os.environ.setdefault(_k.strip(), val)
-    except Exception:
-        pass
+try:
+    from env_utils import clean_env, load_runtime_env
+except (ImportError, ValueError):
+    from .env_utils import clean_env, load_runtime_env
 
-BIFROST_URL = os.getenv("HERMES_MODEL_ENDPOINT", "http://bifrost:8080/v1")
-_raw_model = os.getenv("HERMES_MODEL_OVERRIDE") or os.getenv("HERMES_MODEL_NAME")
+# Load persistent runtime environment if present
+load_runtime_env([
+    clean_env("RUNTIME_ENV_PATH", "/mnt/localstorage/hermes/runtime.env"),
+])
+
+BIFROST_URL = clean_env("HERMES_MODEL_ENDPOINT", "http://bifrost:8080/v1")
+_raw_model = clean_env("HERMES_MODEL_OVERRIDE") or clean_env("HERMES_MODEL_NAME")
 MODEL_NAME = _raw_model if (_raw_model and _raw_model.lower() != "auto") else "auto"
-BIFROST_KEY = os.getenv("BIFROST_VIRTUAL_KEY", "vk-hermes-agent")
+BIFROST_KEY = clean_env("BIFROST_VIRTUAL_KEY", "vk-hermes-agent")
 
 HERMES_TOOLS = [
     {

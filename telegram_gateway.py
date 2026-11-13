@@ -16,17 +16,22 @@ from contextlib import asynccontextmanager
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("hermes.telegram")
 
-ADMIN_TOKEN = os.getenv("TELEGRAM_ADMIN_BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-CLIENT_TOKEN = os.getenv("TELEGRAM_CLIENT_BOT_TOKEN", "").strip()
+try:
+    from env_utils import clean_env
+except (ImportError, ValueError):
+    from .env_utils import clean_env
 
-ADMIN_ALLOWED_USERS_RAW = os.getenv("TELEGRAM_ADMIN_ALLOWED_USERS") or os.getenv("TELEGRAM_ALLOWED_USERS", "").strip()
+ADMIN_TOKEN = clean_env("TELEGRAM_ADMIN_BOT_TOKEN") or clean_env("TELEGRAM_BOT_TOKEN")
+CLIENT_TOKEN = clean_env("TELEGRAM_CLIENT_BOT_TOKEN")
+
+ADMIN_ALLOWED_USERS_RAW = clean_env("TELEGRAM_ADMIN_ALLOWED_USERS") or clean_env("TELEGRAM_ALLOWED_USERS")
 ADMIN_ALLOWED_USERS = {
     int(x.strip())
     for x in ADMIN_ALLOWED_USERS_RAW.split(",")
     if x.strip() and x.strip().lstrip("-").isdigit()
 }
 
-CLIENT_ALLOWED_USERS_RAW = os.getenv("TELEGRAM_CLIENT_ALLOWED_USERS", "").strip()
+CLIENT_ALLOWED_USERS_RAW = clean_env("TELEGRAM_CLIENT_ALLOWED_USERS")
 CLIENT_ALLOWED_USERS = {
     int(x.strip())
     for x in CLIENT_ALLOWED_USERS_RAW.split(",")
@@ -175,7 +180,7 @@ def build_bot_app(token: str, role: str, allowed_users: set, bifrost_key: str):
             raise ApplicationHandlerStop
 
     async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        project_name = os.environ.get("PROJECT_NAME", "default").replace("_", " ").title()
+        project_name = clean_env("PROJECT_NAME", "default").replace("_", " ").title()
         msg = (
             f"👋 *Hola. Soy Hermes, tu copiloto soberano en Zerops ({project_name}).*\n\n"
             "Capacidades operativas en Fase 1 (Apotelos Mesh):\n"
@@ -314,9 +319,9 @@ def build_bot_app(token: str, role: str, allowed_users: set, bifrost_key: str):
     return app
 
 async def run_bot():
-    admin_token = (ADMIN_TOKEN or os.getenv("TELEGRAM_ADMIN_BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN", "")).strip()
-    client_token = (CLIENT_TOKEN or os.getenv("TELEGRAM_CLIENT_BOT_TOKEN", "")).strip()
-    admin_allowed_raw = os.getenv("TELEGRAM_ADMIN_ALLOWED_USERS") or os.getenv("TELEGRAM_ALLOWED_USERS", "").strip()
+    admin_token = ADMIN_TOKEN or clean_env("TELEGRAM_ADMIN_BOT_TOKEN") or clean_env("TELEGRAM_BOT_TOKEN")
+    client_token = CLIENT_TOKEN or clean_env("TELEGRAM_CLIENT_BOT_TOKEN")
+    admin_allowed_raw = clean_env("TELEGRAM_ADMIN_ALLOWED_USERS") or clean_env("TELEGRAM_ALLOWED_USERS")
     admin_allowed = ADMIN_ALLOWED_USERS or {int(x.strip()) for x in admin_allowed_raw.split(",") if x.strip() and x.strip().lstrip("-").isdigit()}
 
     if not admin_token and not client_token:
@@ -341,13 +346,13 @@ async def run_bot():
         apps.append(admin_app)
 
     if client_token and client_token != admin_token:
-        client_allowed_raw = os.getenv("TELEGRAM_CLIENT_ALLOWED_USERS", "").strip()
+        client_allowed_raw = clean_env("TELEGRAM_CLIENT_ALLOWED_USERS")
         client_allowed = CLIENT_ALLOWED_USERS or {int(x.strip()) for x in client_allowed_raw.split(",") if x.strip() and x.strip().lstrip("-").isdigit()}
         client_app = build_bot_app(
             token=client_token,
             role="client",
             allowed_users=client_allowed,
-            bifrost_key="vk-hermes-client"
+            bifrost_key=clean_env("BIFROST_VK_CLIENT", "vk-hermes-agent")
         )
         apps.append(client_app)
 

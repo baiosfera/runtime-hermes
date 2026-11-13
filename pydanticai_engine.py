@@ -13,8 +13,13 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 logger = logging.getLogger("hermes.pydanticai_engine")
 
-BIFROST_URL = os.getenv("HERMES_MODEL_ENDPOINT", "http://bifrost:8080/v1")
-BIFROST_VK = os.getenv("BIFROST_VK_PYDANTICAI", "vk-pydanticai")
+try:
+    from env_utils import clean_env
+except (ImportError, ValueError):
+    from .env_utils import clean_env
+
+BIFROST_URL = clean_env("HERMES_MODEL_ENDPOINT", "http://bifrost:8080/v1")
+BIFROST_VK = clean_env("BIFROST_VK_PYDANTICAI", "vk-pydanticai")
 
 TYPE_MAPPING = {
     "str": (str, ...),

@@ -13,9 +13,14 @@ import uuid
 import httpx
 from typing import Dict, Any, Optional
 
-API_BASE = os.getenv("API_BASE_URL", "http://astrobranding:3000")
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-NATS_URL = os.getenv("NATS_URL") or os.getenv("ZCP_NATS_URL", "nats://nats:4222")
+try:
+    from env_utils import clean_env
+except (ImportError, ValueError):
+    from .env_utils import clean_env
+
+API_BASE = clean_env("API_BASE_URL", "http://astrobranding:3000")
+DATABASE_URL = clean_env("DATABASE_URL")
+NATS_URL = clean_env("NATS_URL") or clean_env("ZCP_NATS_URL", "nats://nats:4222")
 
 async def get_system_health() -> dict:
     """Check health across mesh components"""
@@ -1052,7 +1057,7 @@ async def paperclip_register_agent(
 
 def _resolve_engram_ssot_path() -> Optional[str]:
     """Resolves active project engram_ssot.json in persistent localstorage."""
-    project_name = (os.getenv("PROJECT_NAME") or os.getenv("ENGRAM_PROJECT") or os.getenv("ZEROPS_ProjectId") or "").strip().lower()
+    project_name = (clean_env("PROJECT_NAME") or clean_env("ENGRAM_PROJECT") or clean_env("ZEROPS_ProjectId")).lower()
     if project_name:
         base_dirs = [
             os.path.join(os.getenv("ENGRAM_STORAGE_DIR", "/mnt/localstorage/engram"), project_name),
@@ -1123,7 +1128,7 @@ def mem_search(query: str, limit: int = 5) -> str:
 
 def mem_save(title: str, content: str, type: str = "discovery", topic_key: str = "") -> str:
     """Saves a new observation to persistent Engram storage in localstorage."""
-    project_name = (os.getenv("PROJECT_NAME") or os.getenv("ENGRAM_PROJECT") or os.getenv("ZEROPS_ProjectId") or "default").strip().lower()
+    project_name = (clean_env("PROJECT_NAME") or clean_env("ENGRAM_PROJECT") or clean_env("ZEROPS_ProjectId") or "default").lower()
     engram_dir = os.path.join(os.getenv("ENGRAM_STORAGE_DIR", "/mnt/localstorage/engram"), project_name)
     if not os.path.exists(engram_dir):
         engram_dir = f"/var/www/localstorage/engram/{project_name}"
@@ -1248,7 +1253,7 @@ def linear_comment_issue(issue_id: str, comment: str) -> str:
 # Operational Base Workspace & Verticals Grounding (MentorIA/dev & Playbooks)
 # ==============================================================================
 
-_PROJ = os.getenv("PROJECT_NAME", "default")
+_PROJ = clean_env("PROJECT_NAME", "default")
 DEV_BASE_PATH = f"/mnt/localstorage/{_PROJ}/dev"
 PLAYBOOKS_PATH = "/mnt/localstorage/playbooks"
 SKILLS_PATH = "/mnt/localstorage/skills"

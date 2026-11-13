@@ -23,6 +23,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from unittest.mock import MagicMock, patch
 
+try:
+    from env_utils import clean_env
+except (ImportError, ValueError):
+    from .env_utils import clean_env
+
 
 @dataclass(frozen=True)
 class LinearIssue:
@@ -61,8 +66,9 @@ class LinearBridge:
 
     def _resolve_api_key(self) -> Optional[str]:
         """Resolves Linear API key from env or cross-container localstorage vault."""
-        if os.getenv("LINEAR_API_KEY"):
-            return os.getenv("LINEAR_API_KEY")
+        direct = clean_env("LINEAR_API_KEY")
+        if direct:
+            return direct
 
         # Check localstorage shared volume candidates (Hermes / ZCP)
         candidates = [

@@ -13,23 +13,17 @@ import asyncio
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import threading
 
-# Auto-load runtime keys from shared localstorage vault if not set in environment
-for _env_cand in [
-    os.path.join(os.getenv("LOCAL_STORAGE_PATH", "/mnt/localstorage/hermes"), "runtime.env"),
+# Auto-load runtime keys from shared localstorage vault if missing or unresolved placeholder
+try:
+    from env_utils import clean_env, load_runtime_env
+except (ImportError, ValueError):
+    from .env_utils import clean_env, load_runtime_env
+
+load_runtime_env([
+    os.path.join(clean_env("LOCAL_STORAGE_PATH", "/mnt/localstorage/hermes"), "runtime.env"),
     "/mnt/localstorage/hermes/runtime.env",
-    "/var/www/localstorage/hermes/runtime.env"
-]:
-    if os.path.exists(_env_cand):
-        try:
-            with open(_env_cand, "r", encoding="utf-8") as _f:
-                for _line in _f:
-                    _ls = _line.strip()
-                    if _ls and not _ls.startswith("#") and "=" in _ls:
-                        _k, _v = _ls.split("=", 1)
-                        os.environ.setdefault(_k.strip(), _v.strip("'\" "))
-            break
-        except Exception:
-            pass
+    "/var/www/localstorage/hermes/runtime.env",
+])
 
 ACTIVE_RUNS = {}
 _MAX_CONCURRENT_RUNS = 10

@@ -12,6 +12,11 @@ from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger("hermes.paperclip_bridge")
 
+try:
+    from env_utils import clean_env
+except (ImportError, ValueError):
+    from .env_utils import clean_env
+
 # Default UUIDs for Baiosfera in Paperclip SSoT
 DEFAULT_COMPANY_ID = "2c915432-4c84-4b01-b90b-ee7482147eef"
 DEFAULT_HERMES_AGENT_ID = "22222222-2222-2222-2222-222222222222"
@@ -31,7 +36,7 @@ def get_paperclip_db_url() -> Optional[str]:
         return _DB_CONN_STR
 
     # 1. Direct environment override
-    env_url = os.getenv("PAPERCLIP_DATABASE_URL")
+    env_url = clean_env("PAPERCLIP_DATABASE_URL")
     if env_url:
         _DB_CONN_STR = env_url
         return _DB_CONN_STR
@@ -54,7 +59,7 @@ def get_paperclip_db_url() -> Optional[str]:
                 logger.warning("Could not read Paperclip config from %s: %s", candidate_path, e)
 
     # 3. Fallback to DATABASE_URL if pointing to paperclip database
-    fallback = os.getenv("DATABASE_URL", "")
+    fallback = clean_env("DATABASE_URL")
     if "paperclip" in fallback:
         _DB_CONN_STR = fallback
         return _DB_CONN_STR
@@ -66,13 +71,13 @@ def get_bifrost_db_url() -> Optional[str]:
     Returns the database connection URL for Bifrost gateway request logs.
     Derived dynamically from Paperclip DB URL or environment.
     """
-    env_url = os.getenv("BIFROST_DATABASE_URL")
+    env_url = clean_env("BIFROST_DATABASE_URL")
     if env_url:
         return env_url
     pc_url = get_paperclip_db_url()
     if pc_url and "/paperclip" in pc_url:
         return pc_url.replace("/paperclip", "/db")
-    fallback = os.getenv("DATABASE_URL", "")
+    fallback = clean_env("DATABASE_URL")
     if fallback and "/paperclip" in fallback:
         return fallback.replace("/paperclip", "/db")
     return None
@@ -550,7 +555,7 @@ async def register_paperclip_agent(
                 "thinking": "medium",
                 "env": {
                     "OPENAI_BASE_URL": "http://bifrost:8080/v1",
-                    "OPENAI_API_KEY": "vk-bifrost",
+                    "OPENAI_API_KEY": clean_env("PIDEV_BIFROST_KEY", "vk-pidev"),
                 },
             }
 
