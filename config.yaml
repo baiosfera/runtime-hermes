@@ -1,0 +1,17 @@
+system:
+  name: "hermes-agent-sovereign"
+  log_level: "INFO"
+
+runtime:
+  port: 8000
+  host: "0.0.0.0"
+
+models:
+  primary:
+    endpoint: "http://bifrost:8080/v1"
+    name: "auto"
+
+integrations:
+  nats_url: "nats://nats:4222"
+  telegram:
+    enabled: true
