@@ -17,8 +17,8 @@ try:
 except (ImportError, ValueError):
     from .env_utils import clean_env
 
-# Default UUIDs for Baiosfera in Paperclip SSoT
-DEFAULT_COMPANY_ID = "2c915432-4c84-4b01-b90b-ee7482147eef"
+# Fallback UUIDs when Paperclip company discovery is unavailable (overridable via env)
+DEFAULT_COMPANY_ID = clean_env("PAPERCLIP_COMPANY_ID", "2c915432-4c84-4b01-b90b-ee7482147eef")
 DEFAULT_HERMES_AGENT_ID = "22222222-2222-2222-2222-222222222222"
 DEFAULT_PI_AGENT_ID = "33333333-3333-3333-3333-333333333333"
 DEFAULT_CREWAI_AGENT_ID = "44444444-4444-4444-4444-444444444444"

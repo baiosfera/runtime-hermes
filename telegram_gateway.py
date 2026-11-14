@@ -171,7 +171,13 @@ def build_bot_app(token: str, role: str, allowed_users: set, bifrost_key: str):
 
     async def security_gate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not allowed_users:
-            return  # Open mode if no whitelist specified yet
+            uid = update.effective_user.id if update.effective_user else "desconocido"
+            logger.warning(f"⛔ Telegram fail-closed ({role}): allowlist vacía, rechazado User ID {uid}")
+            if update.effective_message:
+                await update.effective_message.reply_text(
+                    f"⛔ Bot en modo cerrado: configurá TELEGRAM_ALLOWED_USERS en Zerops Vault (tu ID: {uid})."
+                )
+            raise ApplicationHandlerStop
         user = update.effective_user
         if not user or user.id not in allowed_users:
             uid = user.id if user else "desconocido"
@@ -205,7 +211,7 @@ def build_bot_app(token: str, role: str, allowed_users: set, bifrost_key: str):
             f"• Virtual Key: {bifrost_key}\n"
             f"• Rol: {role}\n"
             f"• Base de Datos: PostgreSQL 18 (Paperclip & Mesh Store)\n"
-            f"• Whitelist: {'Activa (' + str(len(allowed_users)) + ' usuarios)' if allowed_users else 'Abierta'}"
+            f"• Whitelist: {'Activa (' + str(len(allowed_users)) + ' usuarios)' if allowed_users else 'Cerrada (sin usuarios autorizados)'}"
         )
 
     async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):

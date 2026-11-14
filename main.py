@@ -65,6 +65,13 @@ def start_ttyd_supervisor() -> None:
     def _run_loop() -> None:
         env = dict(os.environ)
         env.setdefault("TERM", "xterm-256color")
+        repl_cmd = [sys.executable, "/var/www/hermes_cli.py"]
+        tmux_bin = shutil.which("tmux")
+        shell_cmd = (
+            [tmux_bin, "new-session", "-A", "-s", "hermes", " ".join(repl_cmd)]
+            if tmux_bin
+            else repl_cmd
+        )
         cmd = [
             ttyd_bin,
             "-i", "127.0.0.1",
@@ -72,7 +79,7 @@ def start_ttyd_supervisor() -> None:
             "-W",
             "-b", "/terminal",
             "-c", f"{user}:{password}",
-            "bash", "-l",
+            *shell_cmd,
         ]
         while True:
             try:

@@ -1,6 +1,6 @@
 """
 Hermes-Agent Execution Tools
-Sovereign Integration Mesh: Connects Hermes-Agent to PostgreSQL 18, NATS JetStream, and the AstroBranding Central Engine.
+Sovereign Integration Mesh: Connects Hermes-Agent to PostgreSQL 18, NATS JetStream, and the Project Web Engine.
 """
 import os
 import re
@@ -18,7 +18,7 @@ try:
 except (ImportError, ValueError):
     from .env_utils import clean_env
 
-API_BASE = clean_env("API_BASE_URL", "http://astrobranding:3000")
+API_BASE = clean_env("API_BASE_URL") or clean_env("WEB_URL") or "http://webprod:4321"
 DATABASE_URL = clean_env("DATABASE_URL")
 NATS_URL = clean_env("NATS_URL") or clean_env("ZCP_NATS_URL", "nats://nats:4222")
 
@@ -954,7 +954,7 @@ async def get_paperclip_status() -> str:
         import httpx
         from paperclip_bridge import get_paperclip_db_url, list_paperclip_issues
 
-        dashboard_url = "https://paperclip-2b6-3100.ny1.zerops.app"
+        dashboard_url = clean_env("PAPERCLIP_PUBLIC_URL") or "http://paperclip:3100"
         config_path = "/mnt/localstorage/paperclip/instances/default/config.json"
         if os.path.exists(config_path):
             try:
@@ -1250,7 +1250,7 @@ def linear_comment_issue(issue_id: str, comment: str) -> str:
 
 
 # ==============================================================================
-# Operational Base Workspace & Verticals Grounding (MentorIA/dev & Playbooks)
+# Operational Base Workspace & Verticals Grounding (Project Workspaces & Playbooks)
 # ==============================================================================
 
 _PROJ = clean_env("PROJECT_NAME", "default")
