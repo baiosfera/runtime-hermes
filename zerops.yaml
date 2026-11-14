@@ -32,7 +32,7 @@ zerops:
         - test -f /mnt/localstorage/hermes/.hermes/config.yaml || cp /var/www/config.yaml /mnt/localstorage/hermes/.hermes/config.yaml
         - ln -sfn /mnt/localstorage/hermes/.hermes ~/.hermes
         - for f in /var/www/bin/* /mnt/localstorage/bin/*; do [ -f "$f" ] && [ -x "$f" ] && sudo ln -sfn "$f" "/usr/local/bin/$(basename "$f")"; done
-        - HOME=/home/zerops gentle-ai install --agents hermes --scope global || true
+        - 'command -v npm >/dev/null 2>&1 && HOME=/home/zerops gentle-ai install --agents hermes --scope global || true'
       envVariables:
         PORT: "8000"
         PYTHONPATH: "/var/www/vendor:/var/www"
