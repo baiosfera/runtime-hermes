@@ -46,8 +46,7 @@ zerops:
         ENGRAM_STORAGE_DIR: "/mnt/localstorage/engram"
         CREWAI_TELEMETRY_OPT_OUT: "true"
         OTEL_SDK_DISABLED: "true"
-        TTYD_USER: ${TTYD_USER}
-        TTYD_PASSWORD: ${TTYD_PASSWORD}
+        # TTYD_USER / TTYD_PASSWORD are inherited directly from Project Shared Vault
       start: python3 /var/www/main.py
       healthCheck:
         httpGet:
