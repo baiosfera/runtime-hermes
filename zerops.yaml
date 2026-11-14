@@ -32,7 +32,6 @@ zerops:
         - HOME=/home/zerops gentle-ai install --agents hermes --scope global || true
       envVariables:
         PORT: "8000"
-        PATH: "/var/www/bin:/mnt/localstorage/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/opt/zerops/bin"
         PYTHONPATH: "/var/www/vendor:/var/www"
         HERMES_MODEL_ENDPOINT: "http://bifrost:8080/v1"
         HERMES_MODEL_NAME: "auto"

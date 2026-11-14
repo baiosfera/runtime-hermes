@@ -13,6 +13,10 @@ import asyncio
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import threading
 
+for _extra_bin in ("/mnt/localstorage/bin", "/var/www/bin", "/usr/local/bin"):
+    if _extra_bin not in os.environ.get("PATH", "").split(":"):
+        os.environ["PATH"] = f"{_extra_bin}:{os.environ.get('PATH', '/usr/bin:/bin')}"
+
 # Auto-load runtime keys from shared localstorage vault if missing or unresolved placeholder
 try:
     from env_utils import clean_env, load_runtime_env
