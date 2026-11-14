@@ -46,6 +46,7 @@ zerops:
         VALKEY_URL: ${valkey_connectionString}
         LOCAL_STORAGE_PATH: "/mnt/localstorage/hermes"
         ENGRAM_STORAGE_DIR: "/mnt/localstorage/engram"
+        API_SERVER_ENABLED: "true"
         CREWAI_TELEMETRY_OPT_OUT: "true"
         OTEL_SDK_DISABLED: "true"
         # TTYD_USER / TTYD_PASSWORD are inherited directly from Project Shared Vault

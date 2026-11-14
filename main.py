@@ -240,6 +240,22 @@ class HealthHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(status_payload).encode("utf-8"))
             return
 
+        if clean_path in ("/crews", "/api/crews"):
+            try:
+                try:
+                    from crews.crew_factory import CrewFactory
+                except (ImportError, ValueError):
+                    from .crews.crew_factory import CrewFactory
+                crews = CrewFactory.list_crews()
+                registered = sorted(CrewFactory._registry.keys())
+            except Exception:
+                crews, registered = [], []
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok", "crews": crews, "registered": registered}).encode("utf-8"))
+            return
+
         # Status check for Paperclip run: /v1/runs/<run_id>
         if clean_path.startswith("/v1/runs/") and not clean_path.endswith("/events"):
             parts = clean_path.split("/")
