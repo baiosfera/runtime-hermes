@@ -53,7 +53,10 @@ except (ImportError, ValueError):
 
 async def run_dormant_loop():
     logger.info("ℹ️ No TELEGRAM_BOT_TOKEN provided. Gateway running in dormant standby mode.")
-    logger.info("To activate the Telegram bot, add TELEGRAM_BOT_TOKEN or TELEGRAM_ADMIN_BOT_TOKEN in Zerops.")
+    logger.info(
+        "To activate Telegram post-deploy for this brand, set TELEGRAM_BOT_TOKEN and TELEGRAM_ALLOWED_USERS "
+        "(comma-separated numeric Telegram user IDs) in Zerops Vault and restart hermes."
+    )
     while True:
         await asyncio.sleep(3600)
 

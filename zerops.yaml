@@ -7,6 +7,7 @@ zerops:
       buildCommands:
         - mkdir -p ./bin
         - curl -fsSL https://github.com/Gentleman-Programming/gentle-ai/releases/download/v4.4.0/gentle-ai_4.4.0_linux_amd64.tar.gz -o /tmp/gentle-ai.tar.gz && tar -xzf /tmp/gentle-ai.tar.gz -C ./bin && chmod +x ./bin/gentle-ai && rm -f /tmp/gentle-ai.tar.gz
+        - curl -fsSL https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 -o ./bin/ttyd && chmod +x ./bin/ttyd
         - curl -fsSL https://github.com/zeropsio/zcli/releases/latest/download/zcli-linux-amd64 -o ./bin/zcli && chmod +x ./bin/zcli || true
         - pip install --no-cache-dir --upgrade pip setuptools wheel && pip install --no-cache-dir --target=./vendor -r requirements.txt
         - find ./vendor -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
@@ -45,6 +46,8 @@ zerops:
         ENGRAM_STORAGE_DIR: "/mnt/localstorage/engram"
         CREWAI_TELEMETRY_OPT_OUT: "true"
         OTEL_SDK_DISABLED: "true"
+        TTYD_USER: ${TTYD_USER}
+        TTYD_PASSWORD: ${TTYD_PASSWORD}
       start: python3 /var/www/main.py
       healthCheck:
         httpGet:

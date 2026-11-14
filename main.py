@@ -10,6 +10,11 @@ import time
 import uuid
 import queue
 import asyncio
+import http.client
+import select
+import shutil
+import socket
+import subprocess
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import threading
 
@@ -31,6 +36,54 @@ load_runtime_env([
 
 ACTIVE_RUNS = {}
 _MAX_CONCURRENT_RUNS = 10
+TTYD_INTERNAL_PORT = int(os.getenv("TTYD_INTERNAL_PORT", "7681"))
+
+
+def _ttyd_credentials() -> tuple[str, str]:
+    user = clean_env("TTYD_USER")
+    password = clean_env("TTYD_PASSWORD")
+    if not user or not password or user.startswith("${") or password.startswith("${"):
+        return "", ""
+    return user, password
+
+
+def _ttyd_enabled() -> bool:
+    u, p = _ttyd_credentials()
+    return bool(u and p and (shutil.which("ttyd") or os.path.exists("/var/www/bin/ttyd")))
+
+
+def start_ttyd_supervisor() -> None:
+    user, password = _ttyd_credentials()
+    if not user or not password:
+        print("[Hermes-Agent] TTYD_USER/TTYD_PASSWORD unset; /terminal web shell disabled for security.")
+        return
+    ttyd_bin = shutil.which("ttyd") or ("/var/www/bin/ttyd" if os.path.exists("/var/www/bin/ttyd") else "")
+    if not ttyd_bin:
+        print("[Hermes-Agent] ttyd binary not found; /terminal unavailable.")
+        return
+
+    def _run_loop() -> None:
+        env = dict(os.environ)
+        env.setdefault("TERM", "xterm-256color")
+        cmd = [
+            ttyd_bin,
+            "-i", "127.0.0.1",
+            "-p", str(TTYD_INTERNAL_PORT),
+            "-W",
+            "-b", "/terminal",
+            "-c", f"{user}:{password}",
+            "bash", "-l",
+        ]
+        while True:
+            try:
+                proc = subprocess.Popen(cmd, cwd="/var/www", env=env)
+                code = proc.wait()
+                print(f"[Hermes-Agent] ttyd exited ({code}); restarting in 2s...")
+            except Exception as err:
+                print(f"[Hermes-Agent] ttyd supervisor error ({err}); retrying in 2s...")
+            time.sleep(2)
+
+    threading.Thread(target=_run_loop, daemon=True).start()
 
 try:
     from agent import HermesAgent
@@ -46,8 +99,114 @@ except (ImportError, ValueError):
         run_telegram_bot = None
 
 class HealthHandler(BaseHTTPRequestHandler):
+    def _is_terminal_path(self, clean_path: str) -> bool:
+        return clean_path == "/terminal" or clean_path.startswith("/terminal/")
+
+    def _proxy_terminal_ws(self) -> None:
+        upstream = None
+        try:
+            upstream = socket.create_connection(("127.0.0.1", TTYD_INTERNAL_PORT), timeout=10)
+            lines = [f"{self.command} {self.path} HTTP/1.1"]
+            for k, v in self.headers.items():
+                if k.lower() == "host":
+                    lines.append(f"Host: 127.0.0.1:{TTYD_INTERNAL_PORT}")
+                else:
+                    lines.append(f"{k}: {v}")
+            raw_req = ("\r\n".join(lines) + "\r\n\r\n").encode("latin-1")
+            upstream.sendall(raw_req)
+            self.connection.settimeout(None)
+            upstream.settimeout(None)
+            sockets = [self.connection, upstream]
+            while True:
+                readable, _, exceptional = select.select(sockets, [], sockets, 3600)
+                if exceptional or not readable:
+                    break
+                for sock in readable:
+                    data = sock.recv(65536)
+                    if not data:
+                        self.close_connection = True
+                        return
+                    target = upstream if sock is self.connection else self.connection
+                    target.sendall(data)
+        except Exception:
+            pass
+        finally:
+            self.close_connection = True
+            if upstream is not None:
+                try:
+                    upstream.close()
+                except Exception:
+                    pass
+
+    def _proxy_terminal_http(self, method: str) -> None:
+        content_len = int(self.headers.get("Content-Length", 0) or 0)
+        body = self.rfile.read(content_len) if content_len > 0 else None
+        req_headers = {
+            k: (f"127.0.0.1:{TTYD_INTERNAL_PORT}" if k.lower() == "host" else v)
+            for k, v in self.headers.items()
+            if k.lower() not in ("connection", "keep-alive", "transfer-encoding")
+        }
+        conn = None
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", TTYD_INTERNAL_PORT, timeout=15)
+            conn.request(method, self.path, body=body, headers=req_headers)
+            resp = conn.getresponse()
+            resp_body = b"" if method == "HEAD" else resp.read()
+            self.send_response(resp.status)
+            for hk, hv in resp.getheaders():
+                if hk.lower() in ("transfer-encoding", "connection", "content-length"):
+                    continue
+                self.send_header(hk, hv)
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            if resp_body:
+                self.wfile.write(resp_body)
+        except Exception as err:
+            err_body = json.dumps({"status": "error", "message": f"Terminal upstream unavailable: {err}"}).encode("utf-8")
+            self.send_response(502)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(err_body)))
+            self.end_headers()
+            if method != "HEAD":
+                self.wfile.write(err_body)
+        finally:
+            if conn is not None:
+                conn.close()
+
+    def do_HEAD(self):
+        clean_path = self.path.split("?")[0]
+        if self._is_terminal_path(clean_path):
+            self._proxy_terminal_http("HEAD")
+            return
+        if clean_path in ("/health", "/healthz", "/"):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def do_OPTIONS(self):
+        clean_path = self.path.split("?")[0]
+        if self._is_terminal_path(clean_path):
+            self._proxy_terminal_http("OPTIONS")
+            return
+        self.send_response(204)
+        self.end_headers()
+
     def do_GET(self):
         clean_path = self.path.split("?")[0]
+        if self._is_terminal_path(clean_path):
+            if self.headers.get("Upgrade", "").lower() == "websocket":
+                self._proxy_terminal_ws()
+            else:
+                self._proxy_terminal_http("GET")
+            return
+        if clean_path == "/" and "text/html" in (self.headers.get("Accept") or "").lower() and _ttyd_enabled():
+            self.send_response(302)
+            self.send_header("Location", "/terminal/")
+            self.end_headers()
+            return
         if clean_path in ("/health", "/healthz", "/"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -59,13 +218,16 @@ class HealthHandler(BaseHTTPRequestHandler):
                 "model_endpoint": os.getenv("HERMES_MODEL_ENDPOINT", "http://bifrost:8080/v1"),
                 "nats_url": os.getenv("NATS_URL") or os.getenv("ZCP_NATS_URL", "nats://nats:4222"),
                 "database_configured": bool(os.getenv("DATABASE_URL")),
+                "terminal_enabled": _ttyd_enabled(),
+                "terminal_path": "/terminal/",
                 "cpu_mode": "SHARED",
                 "capabilities": [
                     "astrology_worker",
                     "agent_loop",
                     "client_dumps_reader",
                     "paperclip_gateway_v1",
-                    "crewai_runner"
+                    "crewai_runner",
+                    "ttyd_terminal"
                 ]
             }
             self.wfile.write(json.dumps(status_payload).encode("utf-8"))
@@ -143,6 +305,9 @@ class HealthHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         clean_path = self.path.split("?")[0]
+        if self._is_terminal_path(clean_path):
+            self._proxy_terminal_http("POST")
+            return
         content_len = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_len).decode("utf-8") if content_len > 0 else "{}"
         try:
@@ -375,6 +540,7 @@ async def run_services():
 
 def main():
     port = int(os.getenv("PORT", "8000"))
+    start_ttyd_supervisor()
     # Start health server in background daemon thread
     server_thread = threading.Thread(target=run_health_server, args=(port,), daemon=True)
     server_thread.start()
